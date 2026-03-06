@@ -45,7 +45,7 @@ class TestMakeChunkId:
         cid = make_chunk_id("docs", "README.md", "introduction", "section")
         assert cid == "docs::README.md::introduction#section"
 
-    def test_special_chars_in_source_are_sanitised(self):
+    def test_special_chars_in_source_are_sanitized(self):
         cid = make_chunk_id("c1", "https://example.com/page?q=1", "title", "section")
         # Should not raise; colons, slashes, dashes, dots all allowed
         assert "c1::" in cid

@@ -187,6 +187,8 @@ def ingest_url(
                 source=url,
                 source_type="url",
                 title=effective_title,
+                # Cap at 10,000 chars to keep index size manageable; agents
+                # can re-fetch the URL for deeper reading if needed.
                 content=text[:10_000],
                 summary=make_summary(effective_title, text),
                 level=max(level, 1),

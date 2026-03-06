@@ -135,8 +135,6 @@ class KnowledgeStore:
         """
         if not name or name in {".", ".."}:
             raise ValueError(f"Invalid collection name: {name!r}")
-        if "/" in name or "\\" in name:
-            raise ValueError(f"Invalid collection name: {name!r}")
         if not re.fullmatch(r"[A-Za-z0-9._\-]+", name):
             raise ValueError(
                 f"Invalid collection name: {name!r} "
