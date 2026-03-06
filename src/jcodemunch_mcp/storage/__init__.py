@@ -2,6 +2,10 @@
 
 from .index_store import CodeIndex, IndexStore, INDEX_VERSION
 from .token_tracker import record_savings, get_total_saved, estimate_savings, cost_avoided
+from .knowledge_store import KnowledgeIndex, KnowledgeStore, KNOWLEDGE_INDEX_VERSION
 
-__all__ = ["CodeIndex", "IndexStore", "INDEX_VERSION",
-           "record_savings", "get_total_saved", "estimate_savings", "cost_avoided"]
+__all__ = [
+    "CodeIndex", "IndexStore", "INDEX_VERSION",
+    "record_savings", "get_total_saved", "estimate_savings", "cost_avoided",
+    "KnowledgeIndex", "KnowledgeStore", "KNOWLEDGE_INDEX_VERSION",
+]
