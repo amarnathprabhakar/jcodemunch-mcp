@@ -161,6 +161,14 @@ def _walk_tree(
                 else:
                     next_parent = symbol
 
+    # Check for arrow/function-expression variable assignments in JS/TS
+    if node.type == "variable_declarator" and language in ("javascript", "typescript"):
+        var_func = _extract_variable_function(
+            node, spec, source_bytes, filename, language, parent_symbol
+        )
+        if var_func:
+            symbols.append(var_func)
+
     # Check for constant patterns (top-level assignments with UPPER_CASE names)
     if node.type in spec.constant_patterns and parent_symbol is None:
         const_symbol = _extract_constant(node, spec, source_bytes, filename, language)
@@ -274,11 +282,6 @@ def _extract_symbol(
 
 def _extract_name(node, spec: LanguageSpec, source_bytes: bytes) -> Optional[str]:
     """Extract the name from an AST node."""
-    # Handle special cases first
-    if node.type == "arrow_function":
-        # Arrow functions get name from parent variable_declarator
-        return None
-    
     # Handle type_declaration in Go - name is in type_spec child
     if node.type == "type_declaration":
         for child in node.children:
@@ -631,6 +634,79 @@ def _extract_decorators(node, spec: LanguageSpec, source_bytes: bytes) -> list[s
             prev = prev.prev_named_sibling
 
     return decorators
+
+
+_VARIABLE_FUNCTION_TYPES = frozenset({
+    "arrow_function",
+    "function_expression",
+    "generator_function",
+})
+
+
+def _extract_variable_function(
+    node,
+    spec: LanguageSpec,
+    source_bytes: bytes,
+    filename: str,
+    language: str,
+    parent_symbol: Optional[Symbol] = None,
+) -> Optional[Symbol]:
+    """Extract a function from `const name = () => {}` or `const name = function() {}`."""
+    # node is a variable_declarator
+    name_node = node.child_by_field_name("name")
+    if not name_node or name_node.type != "identifier":
+        return None  # destructuring or other non-simple binding
+
+    value_node = node.child_by_field_name("value")
+    if not value_node or value_node.type not in _VARIABLE_FUNCTION_TYPES:
+        return None  # not a function assignment
+
+    name = source_bytes[name_node.start_byte:name_node.end_byte].decode("utf-8")
+
+    kind = "function"
+    if parent_symbol:
+        qualified_name = f"{parent_symbol.name}.{name}"
+        kind = "method"
+    else:
+        qualified_name = name
+
+    # Signature: use the full declaration statement (lexical_declaration parent)
+    # to capture export/const keywords
+    sig_node = node.parent if node.parent and node.parent.type in (
+        "lexical_declaration", "export_statement", "variable_declaration",
+    ) else node
+    # Walk up through export_statement wrapper if present
+    if sig_node.parent and sig_node.parent.type == "export_statement":
+        sig_node = sig_node.parent
+
+    signature = _build_signature(sig_node, spec, source_bytes)
+
+    # Docstring: look for preceding comment on the declaration statement
+    doc_node = sig_node
+    docstring = _extract_docstring(doc_node, spec, source_bytes)
+
+    # Content hash covers the full declaration
+    start_byte = sig_node.start_byte
+    end_byte = sig_node.end_byte
+    symbol_bytes = source_bytes[start_byte:end_byte]
+    c_hash = compute_content_hash(symbol_bytes)
+
+    return Symbol(
+        id=make_symbol_id(filename, qualified_name, kind),
+        file=filename,
+        name=name,
+        qualified_name=qualified_name,
+        kind=kind,
+        language=language,
+        signature=signature,
+        docstring=docstring,
+        parent=parent_symbol.id if parent_symbol else None,
+        line=sig_node.start_point[0] + 1,
+        end_line=sig_node.end_point[0] + 1,
+        byte_offset=start_byte,
+        byte_length=end_byte - start_byte,
+        content_hash=c_hash,
+    )
 
 
 def _extract_constant(

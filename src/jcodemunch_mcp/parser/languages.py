@@ -104,7 +104,6 @@ JAVASCRIPT_SPEC = LanguageSpec(
         "function_declaration": "function",
         "class_declaration": "class",
         "method_definition": "method",
-        "arrow_function": "function",
         "generator_function_declaration": "function",
     },
     name_fields={
@@ -133,7 +132,6 @@ TYPESCRIPT_SPEC = LanguageSpec(
         "function_declaration": "function",
         "class_declaration": "class",
         "method_definition": "method",
-        "arrow_function": "function",
         "interface_declaration": "type",
         "type_alias_declaration": "type",
         "enum_declaration": "type",
