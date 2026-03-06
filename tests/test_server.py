@@ -8,16 +8,20 @@ from jcodemunch_mcp.server import server, list_tools, call_tool
 
 @pytest.mark.asyncio
 async def test_server_lists_all_tools():
-    """Test that server lists all 11 tools."""
+    """Test that server lists all 17 tools (11 code + 6 knowledge)."""
     tools = await list_tools()
 
-    assert len(tools) == 11
+    assert len(tools) == 17
 
     names = {t.name for t in tools}
     expected = {
+        # Code tools (original 11)
         "index_repo", "index_folder", "list_repos", "get_file_tree",
         "get_file_outline", "get_symbol", "get_symbols", "search_symbols",
-        "invalidate_cache", "search_text", "get_repo_outline"
+        "invalidate_cache", "search_text", "get_repo_outline",
+        # Knowledge / second-brain tools (new 6)
+        "index_docs", "index_url", "index_youtube",
+        "search_knowledge", "get_chunk", "list_collections",
     }
     assert names == expected
 

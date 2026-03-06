@@ -224,6 +224,8 @@ Environment variables are optional:
 
 ## Usage Examples
 
+### Code Intelligence
+
 ```
 index_folder: { "path": "/path/to/project" }
 index_repo:   { "url": "owner/repo" }
@@ -235,9 +237,33 @@ get_symbol:       { "repo": "owner/repo", "symbol_id": "src/main.py::MyClass.log
 search_text:      { "repo": "owner/repo", "query": "TODO" }
 ```
 
+### Knowledge Base (Second Brain)
+
+```
+# Index a local documentation folder
+index_docs: { "path": "~/projects/my-app/docs", "collection": "my-app-docs" }
+
+# Index web pages (articles, blogs, API docs)
+index_url: { "url": "https://docs.example.com/guide", "collection": "my-app-docs" }
+
+# Index YouTube video transcripts (requires youtube-transcript-api)
+index_youtube: { "url": "https://www.youtube.com/watch?v=VIDEO_ID", "collection": "learning" }
+
+# Search across a collection
+search_knowledge: { "collection": "my-app-docs", "query": "authentication" }
+
+# Retrieve a specific chunk
+get_chunk: { "collection": "my-app-docs", "chunk_id": "my-app-docs::docs/auth.md::jwt-tokens#section" }
+
+# List all indexed knowledge collections
+list_collections: {}
+```
+
 ---
 
-## Tools (11)
+## Tools (17)
+
+### Code Intelligence (11 tools)
 
 | Tool               | Purpose                     |
 | ------------------ | --------------------------- |
@@ -252,6 +278,17 @@ search_text:      { "repo": "owner/repo", "query": "TODO" }
 | `search_text`      | Full-text search            |
 | `get_repo_outline` | High-level repo overview    |
 | `invalidate_cache` | Remove cached index         |
+
+### Knowledge Base / Second Brain (6 tools)
+
+| Tool                | Purpose                                           |
+| ------------------- | ------------------------------------------------- |
+| `index_docs`        | Index a local documentation folder               |
+| `index_url`         | Index a web page, article, or blog post          |
+| `index_youtube`     | Index a YouTube video transcript                 |
+| `search_knowledge`  | Search a knowledge collection                     |
+| `get_chunk`         | Retrieve the full text of a knowledge chunk      |
+| `list_collections`  | List all indexed knowledge collections            |
 
 Every tool response includes a `_meta` envelope with timing, token savings, and cost avoided:
 
@@ -271,6 +308,7 @@ Every tool response includes a `_meta` envelope with timing, token savings, and 
 
 ## Recent Updates
 
+**v0.3.0** — Knowledge Base / Second Brain: index Markdown docs, web pages, PDFs, and YouTube transcripts; 6 new MCP tools (`index_docs`, `index_url`, `index_youtube`, `search_knowledge`, `get_chunk`, `list_collections`)
 **v0.2.10** — Pin `mcp<1.10.0` to prevent Windows `win32api` DLL crash on startup
 **v0.2.9** — Community savings meter: anonymous token savings shared to a live global counter at j.gravelle.us (opt-out via `JCODEMUNCH_SHARE_SAVINGS=0`); updated model pricing (Opus $25/1M, GPT-5 $10/1M)
 **v0.2.8** — Estimated cost avoided added to every `_meta` response (`cost_avoided`, `total_cost_avoided`)
@@ -325,6 +363,75 @@ See SECURITY.md for details.
 - Architecture exploration  
 - Faster onboarding  
 - Token-efficient multi-agent workflows  
+
+---
+
+## Knowledge Base — Second Brain
+
+Beyond code, jCodeMunch can index **any text-based knowledge source** and make it queryable by AI agents without re-reading the raw content on every request.
+
+### Supported Knowledge Sources
+
+| Source Type           | Tool            | How it works                                                   | Optional dep     |
+| --------------------- | --------------- | -------------------------------------------------------------- | ---------------- |
+| Markdown / RST / TXT  | `index_docs`    | Split by headings; paragraph chunks as fallback                | none             |
+| Web pages / Blogs     | `index_url`     | Fetch HTML, strip tags, split by `<h1>–<h6>` headings         | none             |
+| PDFs                  | `index_docs`    | Extract text page-by-page (with `include_pdfs=true`)           | `pypdf`          |
+| YouTube transcripts   | `index_youtube` | Fetch transcript, group into 2-minute chunks                   | `youtube-transcript-api` |
+
+### Installation
+
+```bash
+# Core (Markdown + URL indexing — no extra deps)
+pip install jcodemunch-mcp
+
+# With PDF support
+pip install "jcodemunch-mcp[pdf]"
+
+# With YouTube transcript support
+pip install "jcodemunch-mcp[youtube]"
+
+# All knowledge features
+pip install "jcodemunch-mcp[knowledge]"
+```
+
+### Workflow
+
+```
+1. Index once:
+   index_docs:    { "path": "~/docs/project", "collection": "project-kb" }
+   index_url:     { "url": "https://blog.example.com/post", "collection": "project-kb" }
+   index_youtube: { "url": "https://youtu.be/VIDEO_ID", "collection": "project-kb" }
+
+2. Search:
+   search_knowledge: { "collection": "project-kb", "query": "authentication flow" }
+
+3. Retrieve:
+   get_chunk: { "collection": "project-kb", "chunk_id": "<id from search>" }
+```
+
+### Knowledge Storage
+
+Knowledge collections are stored in `~/.code-index/knowledge/` (separate from code indexes):
+
+```
+~/.code-index/
+├── owner-repo.json          # Code index
+├── owner-repo/              # Cached source files
+└── knowledge/
+    ├── project-kb.json      # Knowledge collection index
+    └── ...
+```
+
+### Use Cases
+
+| Use Case              | Approach                                                                 |
+| --------------------- | ------------------------------------------------------------------------ |
+| Project documentation | `index_docs` on your `docs/` folder                                    |
+| Research reading list | `index_url` for each article/paper you want to query later             |
+| Learning from videos  | `index_youtube` for tutorial/conference talks                           |
+| PDF manuals / specs   | `index_docs` with `include_pdfs=true`                                  |
+| AI chat history       | Export to Markdown, then `index_docs`                                  |
 
 ---
 

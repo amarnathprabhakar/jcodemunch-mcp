@@ -14,7 +14,10 @@ dependencies = [
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.40.0"]
 gemini = ["google-generativeai>=0.8.0"]
-all = ["anthropic>=0.40.0", "google-generativeai>=0.8.0"]
+pdf = ["pypdf>=3.0.0"]
+youtube = ["youtube-transcript-api>=0.6.0,<2.0.0"]
+knowledge = ["pypdf>=3.0.0", "youtube-transcript-api>=0.6.0,<2.0.0"]
+all = ["anthropic>=0.40.0", "google-generativeai>=0.8.0", "pypdf>=3.0.0", "youtube-transcript-api>=0.6.0,<2.0.0"]
 test = ["pytest", "pytest-asyncio", "pytest-cov"]
 
 [project.scripts]

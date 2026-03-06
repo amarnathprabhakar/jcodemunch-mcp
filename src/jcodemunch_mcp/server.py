@@ -21,6 +21,12 @@ from .tools.search_symbols import search_symbols
 from .tools.invalidate_cache import invalidate_cache
 from .tools.search_text import search_text
 from .tools.get_repo_outline import get_repo_outline
+from .tools.index_docs import index_docs
+from .tools.index_url import index_url
+from .tools.index_youtube import index_youtube
+from .tools.search_knowledge import search_knowledge
+from .tools.get_chunk import get_chunk
+from .tools.list_collections import list_collections
 
 
 # Create server
@@ -278,6 +284,160 @@ async def list_tools() -> list[Tool]:
                 "required": ["repo"]
             }
         ),
+        # ----------------------------------------------------------------
+        # Knowledge / second-brain tools
+        # ----------------------------------------------------------------
+        Tool(
+            name="index_docs",
+            description=(
+                "Index a local folder of documentation files (Markdown, RST, TXT, AsciiDoc, "
+                "optionally PDF) into a named knowledge collection. "
+                "Each document is split into heading-based chunks for efficient retrieval."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Absolute or ~-prefixed path to the documentation folder"
+                    },
+                    "collection": {
+                        "type": "string",
+                        "description": (
+                            "Name for the knowledge collection (letters, digits, '-', '_', '.' only). "
+                            "Examples: 'my-project-docs', 'research-notes'"
+                        )
+                    },
+                    "include_pdfs": {
+                        "type": "boolean",
+                        "description": (
+                            "Also index PDF files in the folder. "
+                            "Requires pypdf: pip install \"jcodemunch-mcp[pdf]\""
+                        ),
+                        "default": False
+                    }
+                },
+                "required": ["path", "collection"]
+            }
+        ),
+        Tool(
+            name="index_url",
+            description=(
+                "Fetch a web page (article, blog post, documentation page) and add it to a "
+                "knowledge collection. The page is split into heading-based chunks. "
+                "Re-indexing the same URL replaces the previous version."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "HTTP or HTTPS URL to fetch and index"
+                    },
+                    "collection": {
+                        "type": "string",
+                        "description": "Knowledge collection name to add this page to"
+                    }
+                },
+                "required": ["url", "collection"]
+            }
+        ),
+        Tool(
+            name="index_youtube",
+            description=(
+                "Fetch a YouTube video's transcript and add it to a knowledge collection. "
+                "The transcript is grouped into time-based chunks (~2 min each by default). "
+                "Requires youtube-transcript-api: pip install \"jcodemunch-mcp[youtube]\""
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "YouTube video URL or bare 11-character video ID"
+                    },
+                    "collection": {
+                        "type": "string",
+                        "description": "Knowledge collection name"
+                    },
+                    "chunk_seconds": {
+                        "type": "integer",
+                        "description": "Seconds of transcript per chunk (default: 120)",
+                        "default": 120
+                    },
+                    "languages": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Language preference list, e.g. ['en', 'en-US']. Falls back to any available transcript."
+                    }
+                },
+                "required": ["url", "collection"]
+            }
+        ),
+        Tool(
+            name="search_knowledge",
+            description=(
+                "Search a knowledge collection for chunks relevant to a query. "
+                "Use after index_docs, index_url, or index_youtube to retrieve relevant content. "
+                "Returns chunk IDs and summaries — use get_chunk to retrieve full text."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "collection": {
+                        "type": "string",
+                        "description": "Knowledge collection name to search"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Free-text search query"
+                    },
+                    "source_type": {
+                        "type": "string",
+                        "description": "Optional filter by source type",
+                        "enum": ["markdown", "url", "pdf", "youtube"]
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of chunks to return",
+                        "default": 10
+                    }
+                },
+                "required": ["collection", "query"]
+            }
+        ),
+        Tool(
+            name="get_chunk",
+            description=(
+                "Retrieve the full text content of a specific knowledge chunk by its ID. "
+                "Use after search_knowledge to read the full text of relevant chunks."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "collection": {
+                        "type": "string",
+                        "description": "Knowledge collection name"
+                    },
+                    "chunk_id": {
+                        "type": "string",
+                        "description": "Chunk ID from search_knowledge results"
+                    }
+                },
+                "required": ["collection", "chunk_id"]
+            }
+        ),
+        Tool(
+            name="list_collections",
+            description=(
+                "List all indexed knowledge collections with their source counts, "
+                "chunk counts, and source types."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
     ]
 
 
@@ -360,6 +520,46 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 repo=arguments["repo"],
                 storage_path=storage_path
             )
+        elif name == "index_docs":
+            result = index_docs(
+                path=arguments["path"],
+                collection=arguments["collection"],
+                include_pdfs=arguments.get("include_pdfs", False),
+                storage_path=storage_path,
+            )
+        elif name == "index_url":
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: index_url(
+                    url=arguments["url"],
+                    collection=arguments["collection"],
+                    storage_path=storage_path,
+                ),
+            )
+        elif name == "index_youtube":
+            result = index_youtube(
+                url=arguments["url"],
+                collection=arguments["collection"],
+                chunk_seconds=arguments.get("chunk_seconds", 120),
+                languages=arguments.get("languages"),
+                storage_path=storage_path,
+            )
+        elif name == "search_knowledge":
+            result = search_knowledge(
+                collection=arguments["collection"],
+                query=arguments["query"],
+                source_type=arguments.get("source_type"),
+                max_results=arguments.get("max_results", 10),
+                storage_path=storage_path,
+            )
+        elif name == "get_chunk":
+            result = get_chunk(
+                collection=arguments["collection"],
+                chunk_id=arguments["chunk_id"],
+                storage_path=storage_path,
+            )
+        elif name == "list_collections":
+            result = list_collections(storage_path=storage_path)
         else:
             result = {"error": f"Unknown tool: {name}"}
         
